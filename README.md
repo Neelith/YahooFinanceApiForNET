@@ -22,4 +22,4 @@ Each method listed above has also a Raw counterpart (ex. GetFinanceQuoteRaw) fro
 All you need to do is register at https://www.yahoofinanceapi.com/ , grab an api key and initialize you YahooFinanceApiManager with that key.
 After that you can call your methods and... that's all. You just got your market data.
 
-If you have some bug or improvements to suggest let me know and if this has come in handy feel free to support me.
+If you have some bug or improvements to suggest let me know.
