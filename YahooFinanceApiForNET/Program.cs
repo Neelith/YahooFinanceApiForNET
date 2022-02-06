@@ -1,6 +1,6 @@
 ﻿using YahooFinanceApiForNET.Managers;
 
-string apiKey = "pScHdfq2EnDmdGhNRmsS8qvPWZE17TC8ux3OsT11";
+string apiKey = "";
 
 Console.WriteLine($"Enter symbols separated by comma and i will show you their current market price:\n");
 string symbols = Console.ReadLine();
