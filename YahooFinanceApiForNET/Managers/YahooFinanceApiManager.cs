@@ -42,14 +42,19 @@ namespace YahooFinanceApiForNET.Managers
         /// <param name="version"> The api version, default is set to v6.</param>
         /// <param name="lang"> The language, default is set to EN.</param>
         /// <param name="region"> The region, default is set to us.</param>
-        /// <returns>an http response</returns>
-        /// <exception cref="ArgumentNullException"></exception>
+        /// <returns cref="HttpResponseMessage"></returns>
         public async Task<HttpResponseMessage> GetFinanceQuoteRawAsync(IEnumerable<string> symbols, int version = 6, string lang = "EN", string region = "us")
         {
             if (symbols is null || !symbols.Any()) throw new ArgumentNullException(nameof(symbols));
 
-            Uri uri = BuildFinanceQuoteApiUri(symbols, version, lang, region);
-            HttpRequestMessage request = BuildFinanceQuoteApiRequest(uri);
+            Dictionary<string, string> queryParams = new Dictionary<string, string>();
+            queryParams.Add(Const.region, region);
+            queryParams.Add(Const.lang, lang);
+            string parsedSymbols = ParseSymbolsIntoString(symbols);
+            queryParams.Add(Const.symbols, parsedSymbols);
+
+            Uri uri = BuildUri(queryParams, version, Const.financeQuote);
+            HttpRequestMessage request = BuildHttpGetRequest(uri);
 
             return await httpClient.SendAsync(request);
         }
@@ -63,10 +68,7 @@ namespace YahooFinanceApiForNET.Managers
         /// <param name="version"> The api version, default is set to v6.</param>
         /// <param name="lang"> The language, default is set to EN.</param>
         /// <param name="region"> The region, default is set to us.</param>
-        /// <returns>an IEnumerable of dictionaries. One dictionary per security.</returns>
-        /// <exception cref="ArgumentNullException"></exception>
-        /// <exception cref="HttpRequestException"></exception>
-        public async Task<List<Dictionary<string, string>>> GetFinanceQuoteAsync(IEnumerable<string> symbols, int version = 6, string lang = "EN", string region = "us")
+        public async Task<IEnumerable<Dictionary<string, string>>> GetFinanceQuoteAsync(IEnumerable<string> symbols, int version = 6, string lang = "EN", string region = "us")
         {
             HttpResponseMessage response = await GetFinanceQuoteRawAsync(symbols, version, lang, region);
             response.EnsureSuccessStatusCode();
@@ -77,6 +79,62 @@ namespace YahooFinanceApiForNET.Managers
             List<Dictionary<string, string>> securities = ParseSecurities(rawSecurities).ToList();
 
             return securities;
+        }
+
+        #endregion
+
+        #region /Finance/Options API
+
+        /// <summary>
+        /// This method wraps the api https://yfapi.net/v6/finance/options. 
+        /// This api returns the option chain for a particular symbol.
+        /// Version and date are set by default but you can change them.
+        /// </summary>
+        /// <param name="symbol"> The symbol you want to get real time options data.</param>
+        /// <param name="version"> The api version, default is set to v7.</param>
+        /// <param name="date"></param>
+        /// <returns cref="HttpResponseMessage"></returns>
+        public async Task<HttpResponseMessage> GetFinanceOptionsRawAsync(string symbol, string dateTime = null, int version = 7)
+        {
+            if (string.IsNullOrWhiteSpace(symbol)) throw new ArgumentException($"'{nameof(symbol)}' cannot be null or whitespace.", nameof(symbol));
+
+            Dictionary<string, string> queryParams = new Dictionary<string, string>();
+
+            if (!dateTime.IsNullOrWhiteSpace())
+            {
+                queryParams.Add(Const.date, dateTime);
+            }
+
+            string apiEndpoint = $"{Const.financeOptions}/{symbol}";
+            Uri uri = BuildUri(queryParams, version, apiEndpoint);
+            HttpRequestMessage request = BuildHttpGetRequest(uri);
+
+            return await httpClient.SendAsync(request);
+        }
+
+        /// <summary>
+        /// This method wraps the api https://yfapi.net/v6/finance/options. 
+        /// This api returns the option chain for a particular symbol.
+        /// Version and date are set by default but you can change them.
+        /// </summary>
+        /// <param name="symbol"> The symbol you want to get real time options data.</param>
+        /// <param name="version"> The api version, default is set to v7.</param>
+        /// <param name="dateTime"></param>
+        public async Task<Dictionary<string, IEnumerable<Dictionary<string, string>>>> GetFinanceOptionsAsync(string symbol, string dateTime = null, int version = 7)
+        {
+            HttpResponseMessage response = await GetFinanceOptionsRawAsync(symbol, dateTime, version);
+            response.EnsureSuccessStatusCode();
+
+            string content = await response.Content.ReadAsStringAsync();
+            JObject data = JObject.Parse(content);
+            JEnumerable<JObject> rawSecurities = data[Const.optionChain][Const.result].Children<JObject>();
+
+            List<Dictionary<string, string>> securities = ParseSecurities(rawSecurities).ToList();
+
+            var symbolSecurities = new Dictionary<string, IEnumerable<Dictionary<string, string>>>();
+            symbolSecurities.Add(symbol, securities);
+
+            return symbolSecurities;
         }
 
         #endregion
@@ -103,30 +161,6 @@ namespace YahooFinanceApiForNET.Managers
             return securities;
         }
 
-        private HttpRequestMessage BuildFinanceQuoteApiRequest(Uri uri)
-        {
-            HttpRequestMessage request = new HttpRequestMessage();
-            request.Method = HttpMethod.Get;
-            request.RequestUri = uri;
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(Const.ApplicationJson));
-            request.Headers.Add(Const.ApiKey, apiKey);
-
-            return request;
-        }
-
-        private Uri BuildFinanceQuoteApiUri(IEnumerable<string> symbols, int version, string lang, string region)
-        {
-            string apiUrl = $"{baseUrl}/v{version}{Const.financeQuote}";
-            var builder = new UriBuilder(apiUrl);
-            var query = HttpUtility.ParseQueryString(builder.Query);
-            query[Const.region] = region;
-            query[Const.lang] = lang;
-            query[Const.symbols] = ParseSymbolsIntoString(symbols);
-            builder.Query = query.ToString();
-
-            return builder.Uri;
-        }
-
         private string ParseSymbolsIntoString(IEnumerable<string> symbols)
         {
             var sb = new StringBuilder();
@@ -138,6 +172,33 @@ namespace YahooFinanceApiForNET.Managers
             }
 
             return sb.ToString();
+        }
+
+        private Uri BuildUri(Dictionary<string,string> queryParams, int apiVersion, string apiEndpoint)
+        {
+            string apiUrl = $"{baseUrl}/v{apiVersion}{apiEndpoint}";
+            var builder = new UriBuilder(apiUrl);
+            var query = HttpUtility.ParseQueryString(builder.Query);
+
+            foreach (KeyValuePair<string, string> param in queryParams)
+            {
+                query[param.Key] = param.Value;
+            }
+            
+            builder.Query = query.ToString();
+
+            return builder.Uri;
+        }
+
+        private HttpRequestMessage BuildHttpGetRequest(Uri uri)
+        {
+            HttpRequestMessage request = new HttpRequestMessage();
+            request.Method = HttpMethod.Get;
+            request.RequestUri = uri;
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(Const.applicationJson));
+            request.Headers.Add(Const.apiKey, apiKey);
+
+            return request;
         }
 
         #endregion
