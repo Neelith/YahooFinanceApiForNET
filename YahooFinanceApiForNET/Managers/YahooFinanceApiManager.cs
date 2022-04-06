@@ -42,6 +42,7 @@ namespace YahooFinanceApiForNET.Managers
         /// This method wraps the api https://yfapi.net/v6/finance/quote. 
         /// This api returns the real time quote data for stocks, ETFs, mutuals funds, and so on.
         /// Version, lang and region are set by default but you can change them.
+        /// Max number of symbols is 10.
         /// </summary>
         /// <param name="symbols"> The lists of symbols you want to get real time quote data.</param>
         /// <param name="version"> The api version, default is set to v6.</param>
@@ -51,6 +52,7 @@ namespace YahooFinanceApiForNET.Managers
         public async Task<HttpResponseMessage> GetFinanceQuoteRawAsync(IEnumerable<string> symbols, int version = 6, string lang = "EN", string region = "us")
         {
             if (symbols is null || !symbols.Any()) throw new ArgumentNullException(nameof(symbols));
+            if (symbols.Count() > 10) throw new ArgumentException("Max 10 symbols allowed.");
 
             Dictionary<string, string> queryParams = new Dictionary<string, string>();
             queryParams.Add(Const.region, region);
@@ -154,6 +156,7 @@ namespace YahooFinanceApiForNET.Managers
         /// This method wraps the api https://yfapi.net/v8/finance/spark. 
         /// This api returns the stock history of the given symbols.
         /// Version, interval and range are set by default but you can change them.
+        /// Max number of symbols is 10.
         /// </summary>
         /// <param name="symbols"></param>
         /// <param name="version"></param>
@@ -205,7 +208,7 @@ namespace YahooFinanceApiForNET.Managers
             Dictionary<string, object> rawData = JsonConvert.DeserializeObject<Dictionary<string, object>>(content);
 
             if (rawData == null || !rawData.Any()) 
-                throw new Exception("HttpResponse contains no data or data is invalid.");
+                throw new Exception("HttpResponse contains no data.");
 
             var securities = new Dictionary<string, Dictionary<string, object>>();
             foreach (string symbol in symbols)
