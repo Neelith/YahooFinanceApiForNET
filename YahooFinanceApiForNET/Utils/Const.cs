@@ -13,6 +13,7 @@
         internal const string optionChain = nameof(optionChain);
         internal const string result = nameof(result);
         internal const string applicationJson = "application/json";
+        internal const string underlyingSymbol = nameof(underlyingSymbol);
 
         //PARTIAL API URLS
         internal const string financeQuote = "/finance/quote";

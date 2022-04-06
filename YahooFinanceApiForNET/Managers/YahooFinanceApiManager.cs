@@ -3,6 +3,7 @@ using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Web;
+using YahooFinanceApiForNET.Services;
 using YahooFinanceApiForNET.Utils;
 
 namespace YahooFinanceApiForNET.Managers
@@ -15,11 +16,12 @@ namespace YahooFinanceApiForNET.Managers
         private readonly string baseUrl = string.Empty;
 
         private readonly HttpClient httpClient;
+        private readonly IHttpRequestBuilder httpRequestBuilder;
 
         #endregion
 
         #region Ctor
-        public YahooFinanceApiManager(HttpClient httpClient, string apiKey, string baseUrl = "https://yfapi.net")
+        public YahooFinanceApiManager(HttpClient httpClient, IHttpRequestBuilder httpRequestBuilder, string apiKey, string baseUrl = "https://yfapi.net")
         {
             this.apiKey = apiKey.IsNullOrWhiteSpace()
                 ? throw new ArgumentException($"'{nameof(apiKey)}' cannot be null or whitespace.", nameof(apiKey))
@@ -27,7 +29,9 @@ namespace YahooFinanceApiForNET.Managers
             this.baseUrl = baseUrl.IsNullOrWhiteSpace()
                 ? throw new ArgumentException($"'{nameof(baseUrl)}' cannot be null or whitespace.", nameof(baseUrl))
                 : baseUrl;
+
             this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+            this.httpRequestBuilder = httpRequestBuilder ?? throw new ArgumentNullException(nameof(httpRequestBuilder));
         }
 
         #endregion
@@ -69,15 +73,19 @@ namespace YahooFinanceApiForNET.Managers
         /// <param name="version"> The api version, default is set to v6.</param>
         /// <param name="lang"> The language, default is set to EN.</param>
         /// <param name="region"> The region, default is set to us.</param>
-        public async Task<IEnumerable<Dictionary<string, string>>> GetFinanceQuoteAsync(IEnumerable<string> symbols, int version = 6, string lang = "EN", string region = "us")
+        public async Task<Dictionary<string, Dictionary<string, string>>> GetFinanceQuoteAsync(IEnumerable<string> symbols, int version = 6, string lang = "EN", string region = "us")
         {
             HttpResponseMessage response = await GetFinanceQuoteRawAsync(symbols, version, lang, region);
             response.EnsureSuccessStatusCode();
 
             string content = await response.Content.ReadAsStringAsync();
-            JObject data = JObject.Parse(content);
-            JEnumerable<JObject> rawSecurities = data[Const.quoteResponse][Const.result].Children<JObject>();
-            List<Dictionary<string, string>> securities = ParseSecurities(rawSecurities).ToList();
+            JObject rawData = JObject.Parse(content);
+
+            if (rawData == null || !rawData.ContainsKey(Const.quoteResponse))
+                throw new Exception($"HttpResponse contains no data or data is invalid.");
+
+            JEnumerable<JObject> rawSecurities = rawData[Const.quoteResponse][Const.result].Children<JObject>();
+            Dictionary<string, Dictionary<string, string>> securities = ParseSecurities(rawSecurities, Const.symbol);
 
             return securities;
         }
@@ -121,21 +129,21 @@ namespace YahooFinanceApiForNET.Managers
         /// <param name="symbol"> The symbol you want to get real time options data.</param>
         /// <param name="version"> The api version, default is set to v7.</param>
         /// <param name="dateTime"></param>
-        public async Task<Dictionary<string, IEnumerable<Dictionary<string, string>>>> GetFinanceOptionsAsync(string symbol, string dateTime = null, int version = 7)
+        public async Task<Dictionary<string, Dictionary<string, string>>> GetFinanceOptionsAsync(string symbol, string dateTime = null, int version = 7)
         {
             HttpResponseMessage response = await GetFinanceOptionsRawAsync(symbol, dateTime, version);
             response.EnsureSuccessStatusCode();
 
             string content = await response.Content.ReadAsStringAsync();
-            JObject data = JObject.Parse(content);
-            JEnumerable<JObject> rawSecurities = data[Const.optionChain][Const.result].Children<JObject>();
+            JObject rawData = JObject.Parse(content);
 
-            List<Dictionary<string, string>> securities = ParseSecurities(rawSecurities).ToList();
+            if (rawData == null || !rawData.ContainsKey(Const.optionChain)) 
+                throw new Exception($"HttpResponse contains no data or data is invalid.");
 
-            var symbolSecurities = new Dictionary<string, IEnumerable<Dictionary<string, string>>>();
-            symbolSecurities.Add(symbol, securities);
+            JEnumerable<JObject> rawSecurities = rawData[Const.optionChain][Const.result].Children<JObject>();
+            Dictionary<string, Dictionary<string, string>> securities = ParseSecurities(rawSecurities, Const.underlyingSymbol);
 
-            return symbolSecurities;
+            return securities;
         }
 
         #endregion
@@ -195,12 +203,16 @@ namespace YahooFinanceApiForNET.Managers
 
             string content = await response.Content.ReadAsStringAsync();
             Dictionary<string, object> rawData = JsonConvert.DeserializeObject<Dictionary<string, object>>(content);
-            if (rawData == null || !rawData.Any()) throw new Exception("HttpResponse contains no data.");
+
+            if (rawData == null || !rawData.Any()) 
+                throw new Exception("HttpResponse contains no data or data is invalid.");
 
             var securities = new Dictionary<string, Dictionary<string, object>>();
             foreach (string symbol in symbols)
             {
-                if (!rawData.ContainsKey(symbol)) throw new Exception($"HttpResponse does not contain {symbol}.");
+                if (!rawData.ContainsKey(symbol)) 
+                    throw new Exception($"HttpResponse does not contain {symbol}.");
+
                 string data = rawData[symbol].ToString();
                 Dictionary<string, object> parsedData = JsonConvert.DeserializeObject<Dictionary<string, object>>(data);
                 securities.Add(symbol.ToUpper(), parsedData);
@@ -213,11 +225,11 @@ namespace YahooFinanceApiForNET.Managers
 
         #region Private utility methods
 
-        private IEnumerable<Dictionary<string, string>> ParseSecurities(JEnumerable<JObject>? rawSecurities)
+        private Dictionary<string, Dictionary<string, string>> ParseSecurities(JEnumerable<JObject>? rawSecurities, string symbolPropertyName)
         {
             if (rawSecurities is null || !rawSecurities.Value.Any()) throw new ArgumentNullException(nameof(rawSecurities));
 
-            List<Dictionary<string, string>> securities = new();
+            Dictionary<string, Dictionary<string, string>> securities = new();
             foreach (JObject rawSecurity in rawSecurities)
             {
                 var security = new Dictionary<string, string>();
@@ -227,7 +239,7 @@ namespace YahooFinanceApiForNET.Managers
                     security.Add(property.Name, property.Value.ToString());
                 }
 
-                securities.Add(security);
+                securities.Add(security[symbolPropertyName], security);
             }
 
             return securities;
@@ -264,13 +276,13 @@ namespace YahooFinanceApiForNET.Managers
 
         private HttpRequestMessage BuildHttpGetRequest(Uri uri)
         {
-            HttpRequestMessage request = new HttpRequestMessage();
-            request.Method = HttpMethod.Get;
-            request.RequestUri = uri;
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(Const.applicationJson));
-            request.Headers.Add(Const.apiKey, apiKey);
-
-            return request;
+            return this.httpRequestBuilder
+                .Create()
+                .WithHttpMethod(HttpMethod.Get)
+                .WithRequestUri(uri)
+                .WithHeadersAccept(new MediaTypeWithQualityHeaderValue(Const.applicationJson))
+                .WithHeaders(Const.apiKey, apiKey)
+                .Build();
         }
 
         #endregion
