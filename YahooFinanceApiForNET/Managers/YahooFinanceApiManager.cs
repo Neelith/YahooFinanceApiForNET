@@ -57,7 +57,7 @@ namespace YahooFinanceApiForNET.Managers
             Dictionary<string, string> queryParams = new Dictionary<string, string>();
             queryParams.Add(Const.region, region);
             queryParams.Add(Const.lang, lang);
-            string parsedSymbols = ParseSymbolsIntoString(symbols);
+            string parsedSymbols = symbols.ParseSymbolsIntoString();
             queryParams.Add(Const.symbols, parsedSymbols);
 
             Uri uri = BuildUri(queryParams, version, Const.financeQuote);
@@ -180,7 +180,7 @@ namespace YahooFinanceApiForNET.Managers
                 queryParams.Add(nameof(range), range);
             }
 
-            string parsedSymbols = ParseSymbolsIntoString(symbols);
+            string parsedSymbols = symbols.ParseSymbolsIntoString();
             queryParams.Add(nameof(symbols), parsedSymbols);
 
             string apiEndpoint = $"{Const.financeSpark}";
@@ -246,19 +246,6 @@ namespace YahooFinanceApiForNET.Managers
             }
 
             return securities;
-        }
-
-        private string ParseSymbolsIntoString(IEnumerable<string> symbols)
-        {
-            var sb = new StringBuilder();
-
-            foreach (string symbol in symbols)
-            {
-                sb.Append(symbol);
-                sb.Append(',');
-            }
-
-            return sb.ToString();
         }
 
         private Uri BuildUri(Dictionary<string,string> queryParams, int apiVersion, string apiEndpoint)

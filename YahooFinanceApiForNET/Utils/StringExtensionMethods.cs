@@ -1,4 +1,6 @@
-﻿namespace YahooFinanceApiForNET.Utils
+﻿using System.Text;
+
+namespace YahooFinanceApiForNET.Utils
 {
     internal static class StringExtensionMethods
     {
@@ -10,6 +12,24 @@
         internal static bool IsNullOrWhiteSpace(this string str)
         {
             return string.IsNullOrWhiteSpace(str);
+        }
+
+        internal static string ParseSymbolsIntoString(this IEnumerable<string> symbols)
+        {
+            string str = string.Empty;
+
+            foreach (string symbol in symbols)
+            {
+                if (symbol == symbols.Last())
+                {
+                    str = $"{str}{symbol}";
+                    continue;
+                }
+
+                str = $"{str}{symbol},";
+            }
+
+            return str;
         }
     }
 }
