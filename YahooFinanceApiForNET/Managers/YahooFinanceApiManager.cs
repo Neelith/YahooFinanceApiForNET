@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Web;
@@ -135,6 +136,77 @@ namespace YahooFinanceApiForNET.Managers
             symbolSecurities.Add(symbol, securities);
 
             return symbolSecurities;
+        }
+
+        #endregion
+
+        #region Finance/Spark API
+
+        /// <summary>
+        /// This method wraps the api https://yfapi.net/v8/finance/spark. 
+        /// This api returns the stock history of the given symbols.
+        /// Version, interval and range are set by default but you can change them.
+        /// </summary>
+        /// <param name="symbols"></param>
+        /// <param name="version"></param>
+        /// <param name="interval"></param>
+        /// <param name="range"></param>
+        /// <returns cref="HttpResponseMessage"></returns>
+        public async Task<HttpResponseMessage> GetFinanceSparkRawAsync(IEnumerable<string> symbols, string interval, string range, int version = 8)
+        {
+            if (symbols is null || !symbols.Any()) throw new ArgumentNullException(nameof(symbols));
+            if (symbols.Count() > 10) throw new ArgumentException("Max 10 symbols allowed.");
+
+            Dictionary<string, string> queryParams = new Dictionary<string, string>();
+
+            if (!interval.IsNullOrWhiteSpace())
+            {
+                queryParams.Add(nameof(interval), interval);
+            }
+
+            if (!range.IsNullOrWhiteSpace())
+            {
+                queryParams.Add(nameof(range), range);
+            }
+
+            string parsedSymbols = ParseSymbolsIntoString(symbols);
+            queryParams.Add(nameof(symbols), parsedSymbols);
+
+            string apiEndpoint = $"{Const.financeSpark}";
+            Uri uri = BuildUri(queryParams, version, apiEndpoint);
+            HttpRequestMessage request = BuildHttpGetRequest(uri);
+
+            return await httpClient.SendAsync(request);
+        }
+
+        /// <summary>
+        /// This method wraps the api https://yfapi.net/v8/finance/spark. 
+        /// This api returns the stock history of the given symbols.
+        /// Version, interval and range are set by default but you can change them.
+        /// </summary>
+        /// <param name="symbols"></param>
+        /// <param name="version"></param>
+        /// <param name="interval"></param>
+        /// <param name="range"></param>
+        public async Task<Dictionary<string, Dictionary<string, object>>> GetFinanceSparkAsync(IEnumerable<string> symbols, string interval, string range, int version = 8)
+        {
+            HttpResponseMessage response = await GetFinanceSparkRawAsync(symbols, interval, range, version);
+            response.EnsureSuccessStatusCode();
+
+            string content = await response.Content.ReadAsStringAsync();
+            Dictionary<string, object> rawData = JsonConvert.DeserializeObject<Dictionary<string, object>>(content);
+            if (rawData == null || !rawData.Any()) throw new Exception("HttpResponse contains no data.");
+
+            var securities = new Dictionary<string, Dictionary<string, object>>();
+            foreach (string symbol in symbols)
+            {
+                if (!rawData.ContainsKey(symbol)) throw new Exception($"HttpResponse does not contain {symbol}.");
+                string data = rawData[symbol].ToString();
+                Dictionary<string, object> parsedData = JsonConvert.DeserializeObject<Dictionary<string, object>>(data);
+                securities.Add(symbol.ToUpper(), parsedData);
+            }
+
+            return securities;
         }
 
         #endregion

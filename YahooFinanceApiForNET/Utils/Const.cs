@@ -17,5 +17,6 @@
         //PARTIAL API URLS
         internal const string financeQuote = "/finance/quote";
         internal const string financeOptions = "/finance/options";
+        internal const string financeSpark = "/finance/spark";
     }
 }
