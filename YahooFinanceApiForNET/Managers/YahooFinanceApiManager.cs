@@ -154,7 +154,7 @@ namespace YahooFinanceApiForNET.Managers
 
         #endregion
 
-        #region Finance/Spark API
+        #region /Finance/Spark API
 
         /// <summary>
         /// This method wraps the api https://yfapi.net/v8/finance/spark. 
@@ -230,6 +230,9 @@ namespace YahooFinanceApiForNET.Managers
 
         #endregion
 
+        #region /Finance/QuoteSummary
+        #endregion
+
         #region Private utility methods
 
         private Dictionary<string, Dictionary<string, string>> ParseSecurities(JEnumerable<JObject>? rawSecurities, string symbolPropertyName)
@@ -264,7 +267,6 @@ namespace YahooFinanceApiForNET.Managers
             }
             
             builder.Query = query.ToString();
-
             return builder.Uri;
         }
 
@@ -280,6 +282,5 @@ namespace YahooFinanceApiForNET.Managers
         }
 
         #endregion
-
     }
 }
