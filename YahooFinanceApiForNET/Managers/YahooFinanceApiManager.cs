@@ -12,26 +12,30 @@ namespace YahooFinanceApiForNET.Managers
     {
         #region Fields and Props
 
-        private readonly string apiKey = string.Empty;
-        private readonly string baseUrl = string.Empty;
+        private string apiKey;
+        private string baseUrl;
 
         private readonly HttpClient httpClient;
         private readonly IHttpRequestBuilder httpRequestBuilder;
 
+        public bool Initialized => !apiKey.IsNullOrWhiteSpace() && !baseUrl.IsNullOrWhiteSpace();
+
         #endregion
 
-        #region Ctor
-        public YahooFinanceApiManager(HttpClient httpClient, IHttpRequestBuilder httpRequestBuilder, string apiKey, string baseUrl = "https://yfapi.net")
+        #region Ctor & Initialize
+        public YahooFinanceApiManager(HttpClient httpClient, IHttpRequestBuilder httpRequestBuilder)
         {
-            this.apiKey = apiKey.IsNullOrWhiteSpace()
-                ? throw new ArgumentException($"'{nameof(apiKey)}' cannot be null or whitespace.", nameof(apiKey))
-                : apiKey;
-            this.baseUrl = baseUrl.IsNullOrWhiteSpace()
-                ? throw new ArgumentException($"'{nameof(baseUrl)}' cannot be null or whitespace.", nameof(baseUrl))
-                : baseUrl;
-
             this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             this.httpRequestBuilder = httpRequestBuilder ?? throw new ArgumentNullException(nameof(httpRequestBuilder));
+        }
+
+        public void Initialize(string apiKey, string baseUrl = "https://yfapi.net")
+        {
+            if (apiKey.IsNullOrWhiteSpace() || baseUrl.IsNullOrWhiteSpace())
+                throw new ArgumentNullException("You need both an api key and a base url to send http requests.");
+
+            this.apiKey = apiKey;
+            this.baseUrl = baseUrl;
         }
 
         #endregion
