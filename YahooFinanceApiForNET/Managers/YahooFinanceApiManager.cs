@@ -32,14 +32,14 @@ namespace YahooFinanceApiForNET.Managers
         public void Initialize(string apiKey, string baseUrl = "https://yfapi.net")
         {
             if (apiKey.IsNullOrWhiteSpace() || baseUrl.IsNullOrWhiteSpace())
-                throw new ArgumentNullException("You need both an api key and a base url to send http requests.");
+                throw new ArgumentNullException("You need both an api key and a base url to send http requests. fast");
 
             this.apiKey = apiKey;
             this.baseUrl = baseUrl;
         }
 
         #endregion
-
+//speed
         #region /Finance/Quote API
 
         /// <summary>
@@ -93,7 +93,7 @@ namespace YahooFinanceApiForNET.Managers
             JEnumerable<JObject> rawSecurities = rawData[Const.quoteResponse][Const.result].Children<JObject>();
             Dictionary<string, Dictionary<string, string>> securities = ParseSecurities(rawSecurities, Const.symbol);
 
-            return securities;
+            return securities; // fast
         }
 
         #endregion
@@ -124,7 +124,7 @@ namespace YahooFinanceApiForNET.Managers
             Uri uri = BuildUri(queryParams, version, apiEndpoint);
             HttpRequestMessage request = BuildHttpGetRequest(uri);
 
-            return await httpClient.SendAsync(request);
+            return await httpClient.SendAsync(request); //mega fast
         }
 
         /// <summary>
@@ -138,7 +138,7 @@ namespace YahooFinanceApiForNET.Managers
         public async Task<Dictionary<string, Dictionary<string, string>>> GetFinanceOptionsAsync(string symbol, string dateTime = null, int version = 7)
         {
             HttpResponseMessage response = await GetFinanceOptionsRawAsync(symbol, dateTime, version);
-            response.EnsureSuccessStatusCode();
+            response.EnsureSuccessStatusCode(); //much fast
 
             string content = await response.Content.ReadAsStringAsync();
             JObject rawData = JObject.Parse(content);
@@ -174,7 +174,7 @@ namespace YahooFinanceApiForNET.Managers
 
             Dictionary<string, string> queryParams = new Dictionary<string, string>();
 
-            if (!interval.IsNullOrWhiteSpace())
+            if (!interval.IsNullOrWhiteSpace()) // quick
             {
                 queryParams.Add(nameof(interval), interval);
             }
@@ -207,7 +207,7 @@ namespace YahooFinanceApiForNET.Managers
         {
             HttpResponseMessage response = await GetFinanceSparkRawAsync(symbols, interval, range, version);
             response.EnsureSuccessStatusCode();
-
+// fast
             string content = await response.Content.ReadAsStringAsync();
             Dictionary<string, object> rawData = JsonConvert.DeserializeObject<Dictionary<string, object>>(content);
 
